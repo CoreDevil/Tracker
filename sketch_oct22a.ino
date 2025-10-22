@@ -65,30 +65,28 @@ void sendToPubNub(float lat, float lon) {
 
   HTTPClient http;
 
-  // Proper JSON message
-  String message = "{\"lat\":" + String(lat, 6) + ",\"lon\":" + String(lon, 6) + "}";
+  // PubNub publish endpoint
+  String url = "https://ps.pndsn.com/publish/" + String(pubKey) + "/" + String(subKey) + "/0/" + String(channel) + "/0";
 
-  // The JSON must be URL-encoded when sent as part of the GET request
-  message.replace("{", "%7B");
-  message.replace("}", "%7D");
-  message.replace("\"", "%22");
-  message.replace(":", "%3A");
-  message.replace(",", "%2C");
+  // Create proper JSON message body
+  String payload = "{\"lat\":" + String(lat, 6) + ",\"lon\":" + String(lon, 6) + "}";
 
-  // Final HTTPS URL
-  String url = "https://ps.pndsn.com/publish/" + pubKey + "/" + subKey + "/0/" + channel + "/0/" + message;
-
-  Serial.println("📡 URL: " + url);
+  Serial.println("📤 Sending to PubNub...");
+  Serial.println("URL: " + url);
+  Serial.println("Payload: " + payload);
 
   http.begin(url);
-  int httpCode = http.GET();
+  http.addHeader("Content-Type", "application/json");
+
+  int httpCode = http.POST(payload);
 
   if (httpCode > 0) {
     Serial.printf("✅ HTTP Response code: %d\n", httpCode);
+    String response = http.getString();
+    Serial.println("Response: " + response);
   } else {
     Serial.printf("❌ HTTP Error: %s\n", http.errorToString(httpCode).c_str());
   }
 
   http.end();
-  Serial.println("Sent message: " + message);
 }

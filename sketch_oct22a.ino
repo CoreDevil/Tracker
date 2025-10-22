@@ -10,7 +10,7 @@ String pubKey = "pub-c-daf4b9aa-8030-4420-97e0-e03abc8dac99";
 String subKey = "sub-c-874e74cd-ed21-4746-b075-50ff52c124a7";
 String channel = "bus_tracker";
 
-// Dummy route: Tambaram → Sholinganallur (approximate points along the route)
+// Dummy route: Tambaram → Sholinganallur
 float route[][2] = {
   {12.9229, 80.1275},  // Tambaram
   {12.9255, 80.1352},
@@ -21,7 +21,7 @@ float route[][2] = {
   {12.9602, 80.1880},  // Perungudi
   {12.9640, 80.1960},
   {12.9678, 80.2065},  // Sholinganallur Signal
-  {12.8985, 80.2200}   // Sholinganallur (End)
+  {12.9715, 80.2200}   // Sholinganallur End
 };
 
 int totalPoints = sizeof(route) / sizeof(route[0]);
@@ -44,23 +44,43 @@ void loop() {
     float lon = route[currentPoint][1];
     sendToPubNub(lat, lon);
 
+    Serial.print("Sent point ");
+    Serial.print(currentPoint);
+    Serial.print(": ");
+    Serial.print(lat, 6);
+    Serial.print(", ");
+    Serial.println(lon, 6);
+
     currentPoint++;
     if (currentPoint >= totalPoints) {
-      currentPoint = 0; // Restart the route loop
+      currentPoint = 0; // Restart route
     }
   }
-  delay(5000); // Send location every 5 seconds
+  delay(5000); // Send every 5 seconds
 }
 
 void sendToPubNub(float lat, float lon) {
   HTTPClient http;
+  unsigned long timestamp = millis(); // Add unique value
+
+  // Construct proper JSON
+  String message = "{\"lat\":" + String(lat, 6) + 
+                   ",\"lon\":" + String(lon, 6) + 
+                   ",\"time\":" + String(timestamp) + "}";
+
+  // Encode message for URL
+  message.replace("{", "%7B");
+  message.replace("}", "%7D");
+  message.replace("\"", "%22");
+  message.replace(":", "%3A");
+  message.replace(",", "%2C");
+
   String url = "http://ps.pndsn.com/publish/" + pubKey + "/" + subKey +
-               "/0/" + channel + "/0/%7B%22lat%22%3A" + String(lat, 6) +
-               "%2C%22lon%22%3A" + String(lon, 6) + "%7D";
+               "/0/" + channel + "/0/" + message;
 
   http.begin(url);
   int httpCode = http.GET();
   http.end();
 
-  Serial.println("Location sent: " + String(lat, 6) + "," + String(lon, 6));
+  Serial.println("Location sent to PubNub!");
 }

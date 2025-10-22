@@ -35,7 +35,7 @@ void setup() {
     delay(500);
     Serial.print(".");
   }
-  Serial.println("\nConnected!");
+  Serial.println("\nConnected to WiFi!");
 }
 
 void loop() {
@@ -61,26 +61,27 @@ void loop() {
 
 void sendToPubNub(float lat, float lon) {
   HTTPClient http;
-  unsigned long timestamp = millis(); // Add unique value
+  unsigned long timestamp = millis();
 
-  // Construct proper JSON
-  String message = "{\"lat\":" + String(lat, 6) + 
-                   ",\"lon\":" + String(lon, 6) + 
+  // Proper JSON message
+  String message = "{\"lat\":" + String(lat, 6) +
+                   ",\"lon\":" + String(lon, 6) +
                    ",\"time\":" + String(timestamp) + "}";
 
-  // Encode message for URL
-  message.replace("{", "%7B");
-  message.replace("}", "%7D");
-  message.replace("\"", "%22");
-  message.replace(":", "%3A");
-  message.replace(",", "%2C");
-
+  // Construct the URL — note the double "0" for proper JSON array syntax
   String url = "http://ps.pndsn.com/publish/" + pubKey + "/" + subKey +
                "/0/" + channel + "/0/" + message;
 
+  Serial.println("URL: " + url);
+
   http.begin(url);
   int httpCode = http.GET();
-  http.end();
 
-  Serial.println("Location sent to PubNub!");
+  if (httpCode > 0) {
+    Serial.println("✅ Message sent to PubNub successfully!");
+  } else {
+    Serial.println("❌ HTTP Error: " + String(httpCode));
+  }
+
+  http.end();
 }

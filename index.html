@@ -7,7 +7,8 @@
   <script src="https://unpkg.com/leaflet/dist/leaflet.js"></script>
   <script src="https://cdn.pubnub.com/sdk/javascript/pubnub.7.2.0.min.js"></script>
   <style>
-    #map { height: 100vh; width: 100%; }
+    #map { height: 100vh; width: 100%; margin: 0; padding: 0; }
+    body { margin: 0; }
   </style>
 </head>
 <body>
@@ -20,15 +21,16 @@
       attribution: '© OpenStreetMap contributors'
     }).addTo(map);
 
-    // 🚌 Marker for the bus
-    const marker = L.marker([12.9229, 80.1275]).addTo(map)
+    // 🚌 Initial marker for the bus
+    const marker = L.marker([12.9229, 80.1275], { draggable: false }).addTo(map)
       .bindPopup("Bus is here")
       .openPopup();
 
     // 🔗 PubNub setup
     const pubnub = new PubNub({
       publishKey: 'pub-c-daf4b9aa-8030-4420-97e0-e03abc8dac99',
-      subscribeKey: 'sub-c-874e74cd-ed21-4746-b075-50ff52c124a7'
+      subscribeKey: 'sub-c-874e74cd-ed21-4746-b075-50ff52c124a7',
+      uuid: 'dashboard-client'
     });
 
     pubnub.subscribe({ channels: ['bus_tracker'] });
@@ -37,7 +39,7 @@
     pubnub.addListener({
       message: function(event) {
         console.log("Received:", event.message);
-        
+
         let data = event.message;
         if (typeof data === "string") {
           try {
@@ -49,8 +51,9 @@
         }
 
         if (data.lat && data.lon) {
-          marker.setLatLng([data.lat, data.lon]);
-          map.setView([data.lat, data.lon]);
+          const newLatLng = L.latLng(data.lat, data.lon);
+          marker.setLatLng(newLatLng);
+          map.panTo(newLatLng);
           console.log("Updated location:", data.lat, data.lon);
         } else {
           console.warn("Missing lat/lon:", data);

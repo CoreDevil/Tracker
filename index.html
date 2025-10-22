@@ -1,0 +1,40 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <title>College Bus Tracker</title>
+  <meta charset="utf-8" />
+  <link rel="stylesheet" href="https://unpkg.com/leaflet/dist/leaflet.css" />
+  <script src="https://unpkg.com/leaflet/dist/leaflet.js"></script>
+  <script src="https://cdn.pubnub.com/sdk/javascript/pubnub.7.2.0.min.js"></script>
+  <style>
+    #map { height: 100vh; width: 100%; }
+  </style>
+</head>
+<body>
+  <div id="map"></div>
+
+  <script>
+    const map = L.map('map').setView([13.0827, 80.2707], 13); // Chennai default
+    L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png').addTo(map);
+
+    const marker = L.marker([13.0827, 80.2707]).addTo(map);
+
+    const pubnub = new PubNub({
+      publishKey: 'pub-c-daf4b9aa-8030-4420-97e0-e03abc8dac99',
+      subscribeKey: 'sub-c-874e74cd-ed21-4746-b075-50ff52c124a7'
+    });
+
+    pubnub.subscribe({ channels: ['bus_tracker'] });
+
+    pubnub.addListener({
+      message: function(event) {
+        const data = event.message;
+        if (data.lat && data.lon) {
+          marker.setLatLng([data.lat, data.lon]);
+          map.setView([data.lat, data.lon], 15);
+        }
+      }
+    });
+  </script>
+</body>
+</html>

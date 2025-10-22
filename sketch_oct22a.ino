@@ -61,33 +61,34 @@ void loop() {
 }
 
 void sendToPubNub(float lat, float lon) {
+  if (WiFi.status() != WL_CONNECTED) return;
+
   HTTPClient http;
-  unsigned long timestamp = millis();
 
-  // JSON payload
-  String message = "{\"lat\":" + String(lat,6) +
-                   ",\"lon\":" + String(lon,6) +
-                   ",\"time\":" + String(timestamp) + "}";
+  // Proper JSON message
+  String message = "{\"lat\":" + String(lat, 6) + ",\"lon\":" + String(lon, 6) + "}";
 
-  // Encode message for URL
+  // The JSON must be URL-encoded when sent as part of the GET request
   message.replace("{", "%7B");
   message.replace("}", "%7D");
   message.replace("\"", "%22");
   message.replace(":", "%3A");
   message.replace(",", "%2C");
 
-  // Use HTTPS endpoint
-  String url = "https://ps.pndsn.com/publish/" + pubKey + "/" + subKey +
-               "/0/" + channel + "/0/" + message;
+  // Final HTTPS URL
+  String url = "https://ps.pndsn.com/publish/" + pubKey + "/" + subKey + "/0/" + channel + "/0/" + message;
 
-  Serial.println("Publishing URL: " + url);
+  Serial.println("📡 URL: " + url);
 
   http.begin(url);
   int httpCode = http.GET();
+
   if (httpCode > 0) {
-    Serial.println("✅ Message sent to PubNub successfully!");
+    Serial.printf("✅ HTTP Response code: %d\n", httpCode);
   } else {
-    Serial.println("❌ HTTP Error: " + String(httpCode));
+    Serial.printf("❌ HTTP Error: %s\n", http.errorToString(httpCode).c_str());
   }
+
   http.end();
+  Serial.println("Sent message: " + message);
 }

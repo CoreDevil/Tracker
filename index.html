@@ -7,74 +7,53 @@
   <script src="https://unpkg.com/leaflet/dist/leaflet.js"></script>
   <script src="https://cdn.pubnub.com/sdk/javascript/pubnub.7.2.0.min.js"></script>
   <style>
-    #map {
-      height: 100vh;
-      width: 100%;
-    }
+    #map { height: 100vh; width: 100%; }
   </style>
 </head>
 <body>
   <div id="map"></div>
 
   <script>
-    // Initialize map centered on Chennai
-    const map = L.map('map').setView([12.9229, 80.1275], 13); // Tambaram start
+    // 🗺️ Initialize map centered near Tambaram
+    const map = L.map('map').setView([12.9229, 80.1275], 13);
     L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
-      maxZoom: 19,
       attribution: '© OpenStreetMap contributors'
     }).addTo(map);
 
-    // Create marker
-    const marker = L.marker([12.9229, 80.1275]).addTo(map);
+    // 🚌 Marker for the bus
+    const marker = L.marker([12.9229, 80.1275]).addTo(map)
+      .bindPopup("Bus is here")
+      .openPopup();
 
-    // Initialize PubNub
+    // 🔗 PubNub setup
     const pubnub = new PubNub({
       publishKey: 'pub-c-daf4b9aa-8030-4420-97e0-e03abc8dac99',
       subscribeKey: 'sub-c-874e74cd-ed21-4746-b075-50ff52c124a7'
     });
 
-    // Subscribe to your channel
     pubnub.subscribe({ channels: ['bus_tracker'] });
 
-    // Function to smoothly move the marker (optional but looks great)
-    function moveMarkerSmoothly(marker, newLat, newLon) {
-      const current = marker.getLatLng();
-      const steps = 20;  // smaller = smoother
-      const delay = 100; // ms between steps
-      const latStep = (newLat - current.lat) / steps;
-      const lonStep = (newLon - current.lng) / steps;
-
-      let stepCount = 0;
-      const interval = setInterval(() => {
-        stepCount++;
-        const nextLat = current.lat + latStep * stepCount;
-        const nextLon = current.lng + lonStep * stepCount;
-        marker.setLatLng([nextLat, nextLon]);
-        if (stepCount >= steps) clearInterval(interval);
-      }, delay);
-    }
-
-    // Listen for messages from PubNub
+    // 📡 Listen for new location messages
     pubnub.addListener({
       message: function(event) {
         console.log("Received:", event.message);
-
-        // Handle both string and JSON message types
+        
         let data = event.message;
         if (typeof data === "string") {
           try {
             data = JSON.parse(data);
           } catch (e) {
-            console.error("Invalid JSON:", data);
+            console.warn("Invalid JSON:", data);
             return;
           }
         }
 
-        // If valid lat/lon received, update marker
         if (data.lat && data.lon) {
-          console.log(`Updating marker to: ${data.lat}, ${data.lon}`);
-          moveMarkerSmoothly(marker, data.lat, data.lon);
-          map.setView([data.lat, data.lon], 15);
+          marker.setLatLng([data.lat, data.lon]);
+          map.setView([data.lat, data.lon]);
+          console.log("Updated location:", data.lat, data.lon);
+        } else {
+          console.warn("Missing lat/lon:", data);
         }
       }
     });

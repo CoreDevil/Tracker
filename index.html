@@ -7,24 +7,37 @@
   <script src="https://unpkg.com/leaflet/dist/leaflet.js"></script>
   <script src="https://cdn.pubnub.com/sdk/javascript/pubnub.7.2.0.min.js"></script>
   <style>
-    #map { height: 100vh; width: 100%; margin: 0; padding: 0; }
     body { margin: 0; }
+    #map { height: 100vh; width: 100%; margin: 0; padding: 0; }
   </style>
 </head>
 <body>
   <div id="map"></div>
 
   <script>
-    // 🗺️ Initialize map centered near Tambaram
+    // 🗺️ Initialize map near Tambaram
     const map = L.map('map').setView([12.9229, 80.1275], 13);
     L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
       attribution: '© OpenStreetMap contributors'
     }).addTo(map);
 
-    // 🚌 Initial marker for the bus
-    const marker = L.marker([12.9229, 80.1275], { draggable: false }).addTo(map)
+    // 🚌 Custom bus icon
+    const busIcon = L.icon({
+      iconUrl: 'https://cdn-icons-png.flaticon.com/512/61/61212.png', // Bus icon
+      iconSize: [40, 40],
+      iconAnchor: [20, 20],
+      popupAnchor: [0, -20]
+    });
+
+    // 🚌 Bus marker
+    const marker = L.marker([12.9229, 80.1275], { icon: busIcon })
+      .addTo(map)
       .bindPopup("Bus is here")
       .openPopup();
+
+    // 🛣️ Trail layer group
+    const trailLayer = L.layerGroup().addTo(map);
+    let trailSegments = [];
 
     // 🔗 PubNub setup
     const pubnub = new PubNub({
@@ -35,12 +48,58 @@
 
     pubnub.subscribe({ channels: ['bus_tracker'] });
 
-    // 📡 Listen for new location messages
+    // 📡 Smooth animation
+    let lastLatLng = null;
+
+    function animateMarker(start, end, duration = 4000) {
+      if (!start || !end) return;
+
+      const startTime = performance.now();
+      const animate = (now) => {
+        const progress = Math.min((now - startTime) / duration, 1);
+        const lat = start.lat + (end.lat - start.lat) * progress;
+        const lon = start.lng + (end.lng - start.lng) * progress;
+        const newPos = L.latLng(lat, lon);
+        marker.setLatLng(newPos);
+        map.panTo(newPos, { animate: true });
+
+        if (progress < 1) {
+          requestAnimationFrame(animate);
+        }
+      };
+      requestAnimationFrame(animate);
+    }
+
+    // ✨ Add fading trail effect
+    function addTrailPoint(position) {
+      const line = L.polyline([position], {
+        color: 'blue',
+        weight: 5,
+        opacity: 1.0
+      }).addTo(trailLayer);
+
+      trailSegments.push(line);
+
+      // Gradually fade and remove old segments
+      let opacity = 1.0;
+      const fade = setInterval(() => {
+        opacity -= 0.05;
+        if (opacity <= 0) {
+          clearInterval(fade);
+          trailLayer.removeLayer(line);
+          trailSegments = trailSegments.filter(seg => seg !== line);
+        } else {
+          line.setStyle({ opacity });
+        }
+      }, 300); // Fade every 300ms
+    }
+
+    // 📡 Handle incoming PubNub messages
     pubnub.addListener({
       message: function(event) {
         console.log("Received:", event.message);
-
         let data = event.message;
+
         if (typeof data === "string") {
           try {
             data = JSON.parse(data);
@@ -52,11 +111,13 @@
 
         if (data.lat && data.lon) {
           const newLatLng = L.latLng(data.lat, data.lon);
-          marker.setLatLng(newLatLng);
-          map.panTo(newLatLng);
-          console.log("Updated location:", data.lat, data.lon);
-        } else {
-          console.warn("Missing lat/lon:", data);
+
+          if (lastLatLng) {
+            animateMarker(lastLatLng, newLatLng, 5000);
+          }
+
+          addTrailPoint(newLatLng);
+          lastLatLng = newLatLng;
         }
       }
     });
